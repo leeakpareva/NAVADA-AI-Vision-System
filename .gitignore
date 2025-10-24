@@ -1,0 +1,26 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# Temporary files
+*.tmp
+temp_voice*.mp3
+navada_photo_*.jpg
+
+# Model files (optional - these are auto-downloaded)
+yolov8*.pt
+
+# Face data (keep this private)
+face_data/
+
+# Mood tracking data
+mood_data.json

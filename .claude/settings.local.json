@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(del .env)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(nslookup:*)",
+      "Bash(curl:*)",
+      "Bash(dir)",
+      "Bash(tasklist)",
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Bash(chainlit run:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
