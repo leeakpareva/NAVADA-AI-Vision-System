@@ -265,18 +265,33 @@ def process_yolo_detection(frame, model):
 def save_photo_with_tags(frame, detections, metadata_input):
     """Save photo with enhanced metadata and tags"""
     try:
+        # Check if frame is valid
+        if frame is None:
+            st.error("No frame available to save")
+            return None, 0
+
         # Create photos directory if it doesn't exist
         photos_dir = "photos"
         if not os.path.exists(photos_dir):
-            os.makedirs(photos_dir)
+            try:
+                os.makedirs(photos_dir)
+            except Exception as e:
+                st.error(f"Cannot create photos directory: {e}")
+                # For cloud environments, just save to session state
+                pass
 
         # Generate timestamp filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         photo_filename = f"navada_photo_{timestamp}.jpg"
         photo_path = os.path.join(photos_dir, photo_filename)
 
-        # Save the photo
-        cv2.imwrite(photo_path, frame)
+        # Try to save the photo
+        photo_saved = False
+        try:
+            if cv2.imwrite(photo_path, frame):
+                photo_saved = True
+        except Exception as e:
+            st.warning(f"Cannot save to file system: {e}")
 
         # Handle both old and new metadata formats
         if isinstance(metadata_input, dict):
@@ -318,17 +333,41 @@ def save_photo_with_tags(frame, detections, metadata_input):
                 ]
             }
 
-        # Save metadata to JSON file (backup)
-        metadata_filename = f"navada_photo_{timestamp}.json"
-        metadata_path = os.path.join(photos_dir, metadata_filename)
-        with open(metadata_path, 'w') as f:
-            json.dump(metadata, f, indent=2)
+        # Try to save metadata to JSON file (backup)
+        try:
+            metadata_filename = f"navada_photo_{timestamp}.json"
+            metadata_path = os.path.join(photos_dir, metadata_filename)
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
+        except Exception as e:
+            # If can't save to file, store in session state for cloud environments
+            if 'saved_photos' not in st.session_state:
+                st.session_state.saved_photos = []
+
+            # Convert frame to base64 for storage in session state
+            import base64
+            from io import BytesIO
+            import PIL.Image
+
+            # Convert frame to PIL Image
+            img = PIL.Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            buffered = BytesIO()
+            img.save(buffered, format="JPEG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+
+            # Store in session state
+            st.session_state.saved_photos.append({
+                'timestamp': timestamp,
+                'image_base64': img_str,
+                'metadata': metadata
+            })
+            st.info("Photo saved to memory (cloud mode)")
 
         # Save to database
         if 'db_conn' in st.session_state and st.session_state.db_conn:
             db_photo_data = {
                 'filename': photo_filename,
-                'file_path': photo_path,
+                'file_path': photo_path if photo_saved else f"memory:{timestamp}",
                 'timestamp': metadata['timestamp'],
                 'tags': metadata['tags'],
                 'location': metadata['location'],
@@ -339,7 +378,8 @@ def save_photo_with_tags(frame, detections, metadata_input):
             }
             save_photo_to_db(st.session_state.db_conn, db_photo_data)
 
-        return photo_path, len(detections)
+        # Return success even if only saved to memory/database
+        return photo_path if photo_saved else f"memory:{timestamp}", len(detections)
     except Exception as e:
         st.error(f"Error saving photo: {e}")
         return None, 0
