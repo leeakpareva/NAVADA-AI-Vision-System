@@ -693,19 +693,26 @@ def main():
             st.markdown("**NAVADA-AI Vision System**")
             st.markdown("*Designed by Lee Akpareva MBA, MA*")
 
-    # Auto-initialize everything on startup
-    if st.session_state.camera is None:
-        st.session_state.camera = get_camera()
-
+    # Auto-initialize YOLO model (camera will be initialized on-demand)
     if st.session_state.yolo_model is None:
-        st.session_state.yolo_model = load_yolo_model()
+        with st.spinner("Loading AI model..."):
+            st.session_state.yolo_model = load_yolo_model()
 
     # Simple controls - LIVE/STOP/CAPTURE buttons
     col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
 
     with col1:
         if st.button("LIVE", type="secondary", width="stretch"):
-            st.session_state.live_feed_active = True
+            # Initialize camera only when starting live feed
+            if st.session_state.camera is None:
+                with st.spinner("Initializing camera..."):
+                    st.session_state.camera = get_camera()
+
+            if st.session_state.camera is None:
+                st.error("❌ No camera available. Camera features are disabled on cloud deployments.")
+                st.session_state.live_feed_active = False
+            else:
+                st.session_state.live_feed_active = True
 
     with col2:
         if st.button("STOP", type="secondary", width="stretch"):
@@ -833,22 +840,20 @@ def main():
             time.sleep(0.03)
 
     else:
-        # Show static camera preview when not in live mode
-        if st.session_state.camera:
-            # Single frame preview when not recording
-            preview_frame = capture_frame(st.session_state.camera)
-            if preview_frame is not None:
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                cv2.putText(preview_frame, f"READY - {timestamp}",
-                           (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                video_placeholder.image(preview_frame, channels="BGR", width="stretch")
-                status_placeholder.info("📹 Camera ready - Click 'Start Live Feed' to begin detection")
-            else:
-                video_placeholder.error("❌ Camera not available")
-                status_placeholder.error("Please check camera connection")
-        else:
-            video_placeholder.error("❌ No camera detected")
-            status_placeholder.error("Please ensure camera is connected and not in use by another app")
+        # Show appropriate message when not in live mode
+        if not st.session_state.live_feed_active:
+            video_placeholder.info("""
+            ### 📷 NAVADA-AI Vision System
+
+            **Camera Features:**
+            - Click **LIVE** to start camera feed (if available)
+            - Use **CAPTURE** to save photos with AI object detection
+            - All photos are saved with metadata and tags
+
+            **Note:** Camera features may not be available on cloud deployments.
+            Use the sidebar to access Gallery, AI Chat, and Statistics features.
+            """)
+            status_placeholder.info("Ready to start. Click LIVE to begin (camera required).")
 
 if __name__ == "__main__":
     main()
